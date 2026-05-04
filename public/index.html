@@ -29,26 +29,13 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // 1. Meminta izin ke Android/Browser untuk mengirim Notifikasi Push
-        function requestNotificationPermission() {
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        alert("Notifikasi berhasil diaktifkan! Biarkan tab ini terbuka di background.");
-                    }
-                });
-            }
-        }
-
-        // 2. Menerima data dari server Node.js Render
         const socket = io();
         const txList = document.getElementById("tx-list");
 
-        socket.on("whale_alert", (data) => {
-            // Memaksa angka dibulatkan tanpa angka desimal di belakang koma
+        // Fungsi pembantu agar tidak menulis kode HTML berulang-ulang (DRY Principle)
+        function createCard(data) {
+            // Membulatkan angka tanpa desimal seperti yang kita bahas sebelumnya
             const amountFormatted = data.amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
-            
-            // A. Tampilkan di UI Dashboard
             const card = document.createElement("div");
             card.className = "tx-card";
             card.innerHTML = `
@@ -59,17 +46,31 @@
                     Ke: ${data.to.substring(0, 8)}...
                 </div>
             `;
-            txList.prepend(card); // Taruh di paling atas
+            return card;
+        }
 
-            // B. Tembakkan Notifikasi Native Android
+        // 1. TERIMA RIWAYAT SAAT REFRESH
+        socket.on("history", (historyData) => {
+            txList.innerHTML = ""; // Bersihkan layar dulu
+            // Render semua riwayat dari server
+            historyData.forEach(data => {
+                txList.appendChild(createCard(data));
+            });
+        });
+
+        // 2. TERIMA DATA BARU SECARA REAL-TIME
+        socket.on("whale_alert", (data) => {
+            txList.prepend(createCard(data)); // Taruh data baru di paling atas
+
+            // Logika Notifikasi Android tetap berjalan
             if (Notification.permission === "granted") {
+                const amountFormatted = data.amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
                 const notif = new Notification(`🚨 Paus ${data.symbol} Terdeteksi!`, {
                     body: `$${amountFormatted} baru saja dipindahkan.`,
-                    icon: "https://cryptologos.cc/logos/tether-usdt-logo.png", // Ikon notifikasi
-                    vibrate: [200, 100, 200] // Membuat HP bergetar
+                    icon: "https://cryptologos.cc/logos/tether-usdt-logo.png",
+                    vibrate: [200, 100, 200]
                 });
 
-                // Jika notifikasi di-tap, buka Etherscan
                 notif.onclick = function() {
                     window.open(`https://etherscan.io/tx/${data.txHash}`, "_blank");
                 };
