@@ -13,6 +13,54 @@
         .amount { color: var(--accent); font-size: 1.2rem; font-weight: bold; }
         .addresses { font-size: 0.8rem; color: #aaa; margin-top: 5px; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* =========================================
+           SISTEM PERINGATAN (WARNING LEVELS)
+           ========================================= */
+        
+        /* Level 1: Paus Raksasa (> $1 Miliar) - Warning Ringan */
+        .warning-light {
+            border: 1px solid rgba(255, 165, 0, 0.5) !important;
+            box-shadow: 0 0 15px rgba(255, 165, 0, 0.1);
+        }
+        .badge-light {
+            background: rgba(255, 165, 0, 0.2);
+            color: #ffaa00;
+            border: 1px solid #ffaa00;
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+
+        /* Level 2: Monster Kelas Kakap (> $10 Miliar) - Warning Keras */
+        .warning-hard {
+            border: 1px solid rgba(255, 0, 0, 0.6) !important;
+            background: rgba(255, 0, 0, 0.05) !important;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.2);
+            animation: slideIn 0.5s ease-out, pulseRed 1.5s infinite !important;
+        }
+        .badge-hard {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff3333;
+            border: 1px solid #ff3333;
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: auto;
+            animation: blinkText 1s infinite;
+        }
+
+        /* Keyframes untuk efek tegang di transaksi di atas $10 Miliar */
+        @keyframes pulseRed {
+            0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.2); }
+            50% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.5); }
+            100% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.2); }
+        }
+        @keyframes blinkText {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -34,13 +82,35 @@
 
         // Fungsi pembantu agar tidak menulis kode HTML berulang-ulang (DRY Principle)
         function createCard(data) {
-            // Membulatkan angka tanpa desimal seperti yang kita bahas sebelumnya
             const amountFormatted = data.amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
             const card = document.createElement("div");
             card.className = "tx-card";
+
+            // Variabel bawaan (Default: Cyan / Normal)
+            let alertBadge = "";
+            let amountColor = "var(--accent)"; 
+
+            // Logika Deteksi Level Ancaman
+            if (data.amount >= 10000000000) { 
+                // Di atas $10 Miliar (Warning Keras)
+                card.classList.add("warning-hard");
+                amountColor = "#ff3333"; // Merah
+                alertBadge = `<span class="badge-hard">🚨 CRITICAL WARNING</span>`;
+                
+            } else if (data.amount >= 1000000000) { 
+                // Di atas $1 Miliar (Warning Ringan)
+                card.classList.add("warning-light");
+                amountColor = "#ffaa00"; // Oranye/Emas
+                alertBadge = `<span class="badge-light">⚠️ MASSIVE WHALE</span>`;
+            }
+
+            // Template HTML yang disuntikkan
             card.innerHTML = `
-                <div><span style="color:#fff;">${data.symbol}</span> TRANSFER</div>
-                <div class="amount">$${amountFormatted}</div>
+                <div style="display: flex; align-items: center;">
+                    <span style="color:#fff;">${data.symbol}</span> &nbsp;TRANSFER 
+                    ${alertBadge}
+                </div>
+                <div class="amount" style="color: ${amountColor};">$${amountFormatted}</div>
                 <div class="addresses">
                     Dari: ${data.from.substring(0, 8)}...<br>
                     Ke: ${data.to.substring(0, 8)}...
