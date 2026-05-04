@@ -7,10 +7,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Folder 'public' untuk file HTML/CSS/JS web app kita
 app.use(express.static("public"));
 
-// Konfigurasi WebSocket Provider
 const WSS_URL = "wss://ethereum-rpc.publicnode.com";
 const provider = new ethers.WebSocketProvider(WSS_URL);
 
@@ -23,6 +21,16 @@ const usdcContract = new ethers.Contract(USDC_ADDRESS, erc20Abi, provider);
 
 const WHALE_THRESHOLD = 1000000;
 
+// === FITUR BARU: IN-MEMORY CACHE ===
+const txHistory = [];
+const MAX_HISTORY = 10; // Simpan 10 paus terakhir di RAM server
+
+// Saat browser direfresh / dibuka
+io.on("connection", (socket) => {
+    // Langsung kirimkan riwayat data ke browser tersebut
+    socket.emit("history", txHistory);
+});
+
 function startSniper(contract, symbol) {
     console.log(`Radar ${symbol} aktif...`);
     contract.on("Transfer", (from, to, value, event) => {
@@ -32,7 +40,13 @@ function startSniper(contract, symbol) {
             const txHash = event.log.transactionHash;
             const whaleData = { symbol, amount: formattedValue, from, to, txHash };
             
-            // Tembakkan data ke Frontend via Socket.io
+            // === SIMPAN KE MEMORI SERVER SEBELUM DIKIRIM ===
+            txHistory.unshift(whaleData); // Masukkan ke urutan paling atas (terbaru)
+            if (txHistory.length > MAX_HISTORY) {
+                txHistory.pop(); // Buang data paling bawah/lama agar RAM tidak penuh
+            }
+
+            // Tembakkan data baru ke semua browser yang sedang buka
             io.emit("whale_alert", whaleData);
             console.log(`Paus ${symbol} tertangkap: $${formattedValue.toLocaleString()}`);
         }
