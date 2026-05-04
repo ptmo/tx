@@ -53,6 +53,61 @@ function startSniper(contract, symbol) {
     });
 }
 
+// ==========================================
+// RADAR PAUS ETH (NATIVE COIN SCANNER)
+// ==========================================
+
+// Alamat Smart Contract Chainlink untuk Data Harga ETH/USD di Mainnet
+const CHAINLINK_ETH_USD = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+const chainlinkAbi = ["function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80)"];
+const priceFeed = new ethers.Contract(CHAINLINK_ETH_USD, chainlinkAbi, provider);
+
+console.log("Radar ETH (Native) aktif. Memindai blok baru...");
+
+// Mendengarkan setiap ada Blok baru yang selesai ditambang
+provider.on("block", async (blockNumber) => {
+    try {
+        // 1. Ambil harga ETH ke USD secara live dari Chainlink Oracle
+        const [, price] = await priceFeed.latestRoundData();
+        // Chainlink USD oracle menggunakan 8 desimal
+        const ethPriceUsd = Number(ethers.formatUnits(price, 8)); 
+
+        // 2. Ambil data blok beserta seluruh isi transaksinya
+        const block = await provider.getBlock(blockNumber, true);
+        if (!block || !block.prefetchedTransactions) return;
+
+        // 3. Bongkar semua transaksi di dalam blok tersebut
+        for (const tx of block.prefetchedTransactions) {
+            // Jika transaksi memiliki value ETH lebih dari 0
+            if (tx.value > 0n) {
+                const ethAmount = Number(ethers.formatEther(tx.value));
+                const usdValue = ethAmount * ethPriceUsd;
+
+                // Jika nilai USD-nya menembus threshold paus
+                if (usdValue >= WHALE_THRESHOLD) {
+                    const whaleData = { 
+                        symbol: "ETH", 
+                        amount: usdValue, 
+                        from: tx.from, 
+                        to: tx.to || "Contract Creation", 
+                        txHash: tx.hash 
+                    };
+                    
+                    // Simpan ke memory cache
+                    txHistory.unshift(whaleData);
+                    if (txHistory.length > MAX_HISTORY) txHistory.pop();
+
+                    // Tembakkan ke Frontend
+                    io.emit("whale_alert", whaleData);
+                    console.log(`\x1b[36m[PAUS ETH TERTANGKAP]\x1b[0m ${ethAmount.toFixed(2)} ETH ($${usdValue.toLocaleString()})`);
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Gagal memindai blok ETH:", error);
+    }
+});
+
 startSniper(usdtContract, "USDT");
 startSniper(usdcContract, "USDC");
 
