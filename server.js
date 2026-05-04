@@ -21,7 +21,7 @@ const erc20Abi = ["event Transfer(address indexed from, address indexed to, uint
 const usdtContract = new ethers.Contract(USDT_ADDRESS, erc20Abi, provider);
 const usdcContract = new ethers.Contract(USDC_ADDRESS, erc20Abi, provider);
 
-const WHALE_THRESHOLD = 100;
+const WHALE_THRESHOLD = 1000000;
 
 function startSniper(contract, symbol) {
     console.log(`Radar ${symbol} aktif...`);
