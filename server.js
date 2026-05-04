@@ -39,10 +39,8 @@ function startSniper(contract, symbol) {
     });
 }
 
-provider.on("ready", () => {
-    startSniper(usdtContract, "USDT");
-    startSniper(usdcContract, "USDC");
-});
+startSniper(usdtContract, "USDT");
+startSniper(usdcContract, "USDC");
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
